@@ -1,0 +1,14 @@
+1755531725915	Move 'Imp.jsp' to 'WEB-INF'
+1755531731558	Move 'login.jsp' to 'WEB-INF'
+1755531735586	Move 'register.jsp' to 'WEB-INF'
+1755531744917	Move 'mysql-connector-j-9.4.0.jar' to 'lib'
+1755532156086	Copy file
+1755532164993	Copy file
+1755532175802	Copy file
+1755532183709	Copy file
+1755532238301	Move 'Imp.jsp' to 'webapp'
+1755532241253	Move 'login.jsp' to 'webapp'
+1755532244170	Move 'register.jsp' to 'webapp'
+1755538057704	Move 'dashboard.jsp' to 'WEB-INF'
+1755538065162	Move 'dashboard.jsp' to 'webapp'
+1755865118563	Delete element

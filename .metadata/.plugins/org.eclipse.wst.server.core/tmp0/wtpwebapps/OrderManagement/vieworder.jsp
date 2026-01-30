@@ -1,0 +1,382 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="java.util.List" %>
+<%@ page import="jakarta.servlet.http.Cookie" %>
+<%
+    // ✅ Cookie-based login check
+    Cookie[] cookies = request.getCookies();
+    String portId = null;
+    if (cookies != null) {
+        for (Cookie c : cookies) {
+            if ("port_id".equals(c.getName())) {
+                portId = c.getValue();
+                break;
+            }
+        }
+    }
+    if (portId == null || portId.isEmpty()) {
+        response.sendRedirect("login.jsp");
+        return;
+    }
+%>
+<%@ page import="model.Order" %>
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>View Orders</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg1:#0a0214;
+  --primary:#6c2bd9;
+  --primary-600:#5b23c0;
+  --primary-200:#e6dbff;
+  --primary-100:#f6f1ff;
+  --pink:#ff4b91;
+  --ink:#1b1b1b;
+}
+
+/* Background animation */
+@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:'Poppins',sans-serif;
+  background:linear-gradient(120deg,#1b1b2f,#162447,#1f4068,#451952);
+  background-size:300% 300%;
+  animation:gradientShift 14s ease infinite;
+  color:var(--ink);
+}
+
+/* Navbar */
+.navbar{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#2a1a5e,#451952);padding:20px 50px;height:100px;position:sticky;top:0;z-index:30;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.navbar .logo{display:flex;align-items:center;font-size:2rem;font-weight:700;color:#ff4b91;letter-spacing:.5px}
+.navbar .logo img{height:75px;width:75px;margin-right:15px;border-radius:50%;box-shadow:0 4px 15px rgba(255,75,145,.6);border:2px solid rgba(255,255,255,.4)}
+.nav-links{display:flex;gap:50px}
+.nav-links a{color:#f8f8f8;text-decoration:none;font-weight:500;font-size:1.05rem;position:relative}
+.nav-links a::after{content:'';position:absolute;left:0;bottom:-8px;height:3px;width:0;background:#ff4b91;border-radius:2px;transition:width .3s ease}
+.nav-links a:hover{color:#ff4b91}
+.nav-links a:hover::after{width:100%}
+.btn-profile { 
+    padding: 10px 20px; 
+    border-radius: 12px; 
+    font-weight: 700; 
+    font-size: .95rem; 
+    cursor: pointer;
+    text-decoration: none; 
+    border: none; 
+    background: linear-gradient(135deg, #ff00cc, #3333ff); 
+    color: #fff;
+    display: flex; 
+    align-items: center; 
+    gap: 8px;
+    box-shadow: 0 0 12px rgba(255,0,204,0.6); 
+    transition: all 0.35s ease;
+}
+.btn-profile:hover { 
+    transform: scale(1.07); 
+    box-shadow: 0 6px 25px rgba(255,0,204,0.6); 
+}
+/* Page sheet */
+.sheet{
+  width:92%;
+  max-width:1250px;
+  margin:72px auto 48px;
+  background:#fff;
+  border:2px solid var(--primary);
+  border-radius:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  overflow:hidden;
+}
+
+/* Header bar */
+.sheet-head{display:flex;gap:14px;align-items:center;justify-content:space-between;padding:18px 22px;background:linear-gradient(90deg,var(--primary),#8b5cf6);color:#fff}
+.sheet-title{font-size:1.25rem;font-weight:800;letter-spacing:.3px}
+.tools{display:flex;gap:10px;flex-wrap:wrap}
+.input{background:#fff;border:1.5px solid var(--primary-200);padding:10px 12px;border-radius:12px;min-width:220px;font-weight:600;color:#3c3c3c}
+.select{appearance:none;background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="%236c2bd9"><path d="M5.5 7l4.5 5 4.5-5z"/></svg>') no-repeat right 12px center;border:1.5px solid var(--primary-200);padding:10px 36px 10px 12px;border-radius:12px;font-weight:700;color:#3c3c3c}
+.btn{border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+.btn-purple{background:#fff;border:2px solid #b39afc;color:var(--primary)}
+.btn-purple:hover{background:var(--primary);color:#fff}
+.btn-print{background:transparent;border:1.5px dashed #fff;color:#fff}
+.btn-print:hover{background:rgba(255,255,255,.1)}
+
+/* Table wrapper */
+.table-wrap{max-height:68vh;overflow:auto;background:#fff}
+.table{width:100%;border-collapse:separate;border-spacing:0}
+.table thead th{
+  position:sticky;top:0;z-index:5;
+  background:var(--primary-100);color:var(--primary);
+  font-weight:800;text-transform:uppercase;
+  font-size:.9rem;letter-spacing:.4px;
+  border-bottom:2px solid var(--primary-200);
+  padding:14px 16px;
+  text-align:center;
+}
+.table tbody td{
+  border-bottom:1px solid var(--primary-200);
+  border-right:1px solid var(--primary-200);
+  padding:14px 16px;
+  font-weight:600;color:#3b3b3b;
+}
+
+/* Column alignments */
+.table td:nth-child(1), /* Order ID */
+.table td:nth-child(2), /* Buyer ID */
+.table td:nth-child(3), /* Seller Port ID */
+.table td:nth-child(4), /* Product ID */
+.table td:nth-child(5), /* Order Date */
+.table td:nth-child(6), /* Total Amount */
+.table td:nth-child(7)  /* Status */ {
+  text-align: center;
+}
+.table td:nth-child(8){ /* Delivery Address */
+  text-align: left;
+}
+
+.table tbody tr td:first-child{border-left:1px solid var(--primary-200)}
+.table tbody tr:hover{background:#faf7ff}
+.table tfoot td{padding:12px 16px;border-top:2px solid var(--primary-200);background:#fdfbff}
+
+/* Chips */
+.chip{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:6px 12px;font-size:.8rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase}
+.chip i{font-size:.9rem}
+.chip-pending{background:#fff8e6;border:1px solid #ffe9a6;color:#795b00}
+.chip-shipped{background:#e9fbef;border:1px solid #b8efca;color:#0f6b3d}
+.chip-delivered{background:#eaf2ff;border:1px solid #bfd6ff;color:#0a3e91}
+.chip-cancelled{background:#ffecee;border:1px solid #ffc3cb;color:#8c1b25}
+
+/* Pills */
+.pills{display:flex;gap:8px;justify-content:center}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-weight:800;font-size:.85rem;text-decoration:none;transition:.2s}
+.pill-view{border:2px solid #b6c9ff;color:#2452e6;background:#eef3ff}
+.pill-edit{border:2px solid #fbb3cd;color:#d81b60;background:#fff0f6}
+
+/* Order link */
+.order-link{color:#111;text-decoration:none;font-weight:800}
+.order-link:hover{color:var(--primary)}
+
+/* Empty state */
+.empty{padding:48px;text-align:center;color:#6b7280;font-weight:600}
+.empty i{font-size:40px;color:var(--primary);margin-bottom:12px}
+
+/* -------- PRINT ADJUSTMENTS -------- */
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+
+  body { background:#fff !important;-webkit-print-color-adjust: exact;print-color-adjust: exact;font-size:11px; }
+  .navbar, .tools, .btn-print { display:none !important; }
+
+  .sheet { box-shadow:none;border:1px solid #000;margin:0;width:100%;transform: scale(0.95);transform-origin: top center; }
+
+  /* Fix table width */
+  .table { table-layout: fixed; width: 100% !important; }
+
+  /* Column widths */
+  .table th:nth-child(1), .table td:nth-child(1) { width: 7%; }
+  .table th:nth-child(2), .table td:nth-child(2) { width: 10%; }
+  .table th:nth-child(3), .table td:nth-child(3) { width: 10%; }
+  .table th:nth-child(4), .table td:nth-child(4) { width: 7%; }
+  .table th:nth-child(5), .table td:nth-child(5) { width: 16%; }
+  .table th:nth-child(6), .table td:nth-child(6) { width: 10%; }
+  .table th:nth-child(7), .table td:nth-child(7) { width: 12%; }
+  .table th:nth-child(8), .table td:nth-child(8) { width: 28%; }
+  .table th:nth-child(9), .table td:nth-child(9) { display:none !important; }
+
+  .table th, .table td { word-wrap: break-word;white-space: normal;font-size: 11px;padding: 8px;text-align: center; }
+
+  /* Print header */
+  .print-header { display:block !important;text-align:center;margin-bottom:20px;border-bottom:2px solid #6c2bd9;padding-bottom:10px; }
+  .print-header img { height:60px;margin-bottom:8px; }
+  .print-header h1 { margin:0;font-size:20px;color:#6c2bd9; }
+  .print-header p { margin:0;font-size:12px;color:#333; }
+
+  /* Preserve header colors */
+  .table thead th { background:#6c2bd9 !important;color:#fff !important;-webkit-print-color-adjust: exact;print-color-adjust: exact; }
+
+  /* Replace status chips with plain text */
+  .chip { all: unset !important;font-size: 11px !important;font-weight: 700 !important;color: #000 !important;text-transform: capitalize; }
+  .chip i { display:none !important; }
+
+  table, tr, td, th { page-break-inside: avoid !important;break-inside: avoid !important; }
+
+  body::after { content: "Page " counter(page) " of " counter(pages);position: fixed;bottom: 8mm;right: 12mm;font-size: 10px;color:#333; }
+}
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<div class="navbar">
+  <div class="logo">
+    <img src="image/logo.png" alt="Logo"><span>ImportExportERP</span>
+  </div>
+        <div class="nav-links">
+        <a href="http://localhost:8080/RegistrationLogin/dashboard.jsp?port_id=<%= portId %>" class="nav-link">Home</a>
+       <a href="http://localhost:8080/ProductManagement/ProductServlet" class="nav-link">
+    Product Management
+</a>
+        <a href="http://localhost:8080/OrderManagement/ListOrdersServlet?seller_port_id=<%= portId%>" class="nav-link">
+    Order Management
+</a>
+        <a href="http://localhost:8080/Report_product/ReportedProductsServlet?port_id=<%= portId%>" class="nav-link">
+    Reported Products
+</a>
+    </div>
+    <div class="nav-cta">
+        <a href="http://localhost:8080/ProfileManagement/ProfileController?port_id=<%= portId %>" class="btn btn-profile">Profile</a>
+    </div>
+</div>
+
+<!-- White + Purple Sheet -->
+<div class="sheet">
+
+  <!-- Print header -->
+  <div class="print-header" style="display:none;">
+    <img src="image/logo.png" alt="Logo">
+    <h1>Orders Report</h1>
+    <p>Generated on: <%= new java.util.Date() %></p>
+  </div>
+
+  <!-- Sheet Header / Tools -->
+  <div class="sheet-head">
+    <div class="sheet-title"><i class="fa-solid fa-table-list"></i> Seller Orders</div>
+    <div class="tools">
+      <input id="q" type="text" class="input" placeholder="Search order, buyer, address…">
+      <select id="statusFilter" class="select" title="Filter by status">
+        <option value="">All Status</option>
+        <option value="pending">Pending</option>
+        <option value="shipped">Shipped</option>
+        <option value="delivered">Delivered</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <button class="btn btn-purple" onclick="clearFilters()"><i class="fa-solid fa-eraser"></i> Clear</button>
+      <button class="btn btn-print" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table class="table" id="ordersTable">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Buyer ID</th>
+          <th>Seller Port ID</th>
+          <th>Product ID</th>
+          <th>Order Date</th>
+          <th>Total Amount</th>
+          <th>Status</th>
+          <th>Delivery Address</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      <%
+        List<Order> orders = (List<Order>) request.getAttribute("orders");
+        if (orders != null && !orders.isEmpty()) {
+          for (Order order : orders) {
+            String status = (order.getStatus() == null) ? "" : order.getStatus();
+            String chipClass;
+            if ("pending".equalsIgnoreCase(status)) chipClass = "chip-pending";
+            else if ("shipped".equalsIgnoreCase(status)) chipClass = "chip-shipped";
+            else if ("delivered".equalsIgnoreCase(status)) chipClass = "chip-delivered";
+            else if ("cancelled".equalsIgnoreCase(status)) chipClass = "chip-cancelled";
+            else chipClass = "chip-pending";
+      %>
+        <tr>
+          <td><a class="order-link" href="OrderDetailsServlet?id=<%= order.getOrderId() %>">#<%= order.getOrderId() %></a></td>
+          <td><%= order.getBuyerId() %></td>
+          <td><%= order.getSellerPortId() %></td>
+          <td><%= order.getProductId() %></td>
+          <td><%= order.getOrderDate() %></td>
+          <td>$<%= order.getTotalAmount() %></td>
+          <td>
+            <span class="chip <%= chipClass %>">
+              <i class="fa-solid <%= "pending".equalsIgnoreCase(status) ? "fa-clock" :
+                                   ("shipped".equalsIgnoreCase(status) ? "fa-truck" :
+                                   ("delivered".equalsIgnoreCase(status) ? "fa-circle-check" : "fa-xmark")) %>"></i>
+              <%= status %>
+            </span>
+          </td>
+          <td><%= order.getDeliveryAddress() %></td>
+          <td>
+            <div class="pills">
+              <a class="pill pill-view" href="OrderDetailsServlet?id=<%= order.getOrderId() %>"><i class="fa-solid fa-eye"></i> View</a>
+              <a class="pill pill-edit" href="UpdateOrderServlet?id=<%= order.getOrderId() %>"><i class="fa-solid fa-pen-to-square"></i> Update</a>
+            </div>
+          </td>
+        </tr>
+      <%
+          }
+        } else {
+      %>
+        <tr><td colspan="9"><div class="empty"><i class="fa-solid fa-box-open"></i><br>No orders found.</div></td></tr>
+      <%
+        }
+      %>
+      </tbody>
+      <tfoot>
+        <tr><td colspan="9">Showing <span id="rowCount"></span> orders</td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<script>
+const q = document.getElementById('q');
+const statusFilter = document.getElementById('statusFilter');
+const table = document.getElementById('ordersTable').getElementsByTagName('tbody')[0];
+const rowCountEl = document.getElementById('rowCount');
+
+function normalize(s){ return (s||'').toString().toLowerCase().trim(); }
+function applyFilters(){
+  const term = normalize(q.value);
+  const status = normalize(statusFilter.value);
+  let shown = 0;
+  [...table.rows].forEach(tr=>{
+    const cells = [...tr.cells].map(td => td.innerText);
+    const rowText = normalize(cells.join(' '));
+    const statusText = normalize(cells[6]); 
+    const matchesText = !term || rowText.includes(term);
+    const matchesStatus = !status || statusText.includes(status);
+    const show = matchesText && matchesStatus;
+    tr.style.display = show ? '' : 'none';
+    if(show) shown++;
+  });
+  rowCountEl.textContent = shown;
+}
+function clearFilters(){ q.value=''; statusFilter.value=''; applyFilters(); }
+q.addEventListener('input', applyFilters);
+statusFilter.addEventListener('change', applyFilters);
+window.addEventListener('load', applyFilters);
+
+const wrap = document.querySelector('.table-wrap');
+wrap.addEventListener('scroll', ()=>{
+  const ths = document.querySelectorAll('.table thead th');
+  const shadow = wrap.scrollTop>2 ? '0 2px 0 rgba(0,0,0,0.05)' : 'none';
+  ths.forEach(th => th.style.boxShadow = shadow);
+});
+const togglePassword = document.getElementById("togglePassword");
+const passwordInput = document.getElementById("password");
+
+togglePassword.addEventListener("click", () => {
+    const icon = togglePassword.querySelector("i");
+    if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+    } else {
+        passwordInput.type = "password";
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
+    }
+});
+
+</script>
+
+</body>
+</html>
